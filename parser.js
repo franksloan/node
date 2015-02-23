@@ -12,6 +12,7 @@ fs.readFile(fdfFile, function(err, data){
 	var arr = text.split('\r\n');
 	var lengths = [];
 	var decimals = [];
+	var types = [];
 	for(var i = 0; i < arr.length; i++) {		
 		if (arr[i].search('Length') >= 0) {
 			//create an array of field lengths
@@ -23,9 +24,17 @@ fs.readFile(fdfFile, function(err, data){
 				decimals.push(0);
 			}
 		}
+		if (arr[i].search('Type') >= 0) {
+			// get the different types so program knows how to pad out numbers/characters
+			if(parseInt(arr[i].substring(5)) !== 1 && parseInt(arr[i].substring(5)) !== 2) {
+				console.log('there was a problem with the type values');
+			} else {
+				types.push(parseInt(arr[i].substring(5)));
+			}
+		}
 		
 	}
-
+	console.log('.txt version of FDF file read successfully, starting parsing csv data');
 	var csvToJson = csv({objectMode: true});
 	var j = 0;
 	var parser = new Transform({objectMode: true});
@@ -56,8 +65,14 @@ fs.readFile(fdfFile, function(err, data){
 				if (i === data.length - 1){
 					whitespace++;
 				};
-				//pad out the value with blanks at the beginning
-				data[i] = new Array(whitespace + 1).join(' ') + data[i];
+				//pad out the value with blanks at the beginning if number
+				if(types[i] === 2) {
+					data[i] = new Array(whitespace + 1).join(' ') + data[i];
+				} else {
+					//after if characters
+					data[i] =  data[i] + new Array(whitespace + 1).join(' ');
+				}
+				
 			}
 			data = data.join('');
 			this.push(data);
