@@ -8,11 +8,12 @@ var JSONStream = require('JSONStream');
 var fdfFile = process.argv[3];
 fs.readFile(fdfFile, function(err, data){
 	if (err) throw err;
-	var text = data.toString();
-	var arr = text.split('\r\n');
-	var lengths = [];
-	var decimals = [];
-	var types = [];
+	var text = data.toString()
+	//create new array of .txt FDF file using carriage returns or new lines to separate
+	, arr = text.split('\r\n')
+	, lengths = []
+	, decimals = []
+	, types = [];
 	for(var i = 0; i < arr.length; i++) {		
 		if (arr[i].search('Length') >= 0) {
 			//create an array of field lengths
@@ -24,17 +25,22 @@ fs.readFile(fdfFile, function(err, data){
 				decimals.push(0);
 			}
 		}
-		if (arr[i].search('Type') >= 0) {
+		if (arr[i].search('Type') == 0) {
 			// get the different types so program knows how to pad out numbers/characters
 			if(parseInt(arr[i].substring(5)) !== 1 && parseInt(arr[i].substring(5)) !== 2) {
-				console.log('there was a problem with the type values');
+				console.log('There was a problem with the type values');
 			} else {
 				types.push(parseInt(arr[i].substring(5)));
 			}
 		}
 		
 	}
-	console.log('.txt version of FDF file read successfully, starting parsing csv data');
+	if((lengths.length === decimals.length) && (lengths.length === types.length)) {
+		console.log('.txt version of FDF file read successfully, starting parsing csv data');
+	} else {
+		console.log('Error reading formats and types of field from .txt version of FDF file');
+		return;
+	}
 	var csvToJson = csv({objectMode: true});
 	var j = 0;
 	var parser = new Transform({objectMode: true});
@@ -42,11 +48,15 @@ fs.readFile(fdfFile, function(err, data){
 			for(var i = 0; i < data.length; i++) {
 				//remove all commas which mainly come from numbers
 				data[i] = data[i].replace(/,/g, '');
+				//use this structure to change any data to something else
+				//e.g. I have changed agreement number here
 				if (data[i] == 'A001169415'){
 					data[i] = 'B001169415';
 				}
-				//remove whitespace in strings
-				data[i] = data[i].replace(/ /g,'');
+				//if there is a problem with uploading blanks 
+				//uncomment out line below which removes whitespace in strings
+				// data[i] = data[i].replace(/ /g,'');
+
 				//there is a decimal portion for this element
 				if (decimals[i] > 0) {
 					var decimalPart = parseFloat(data[i]) - parseInt(data[i]);
@@ -62,6 +72,7 @@ fs.readFile(fdfFile, function(err, data){
 				}
 				//
 				var whitespace = lengths[i] - data[i].length;
+				//if end of line add an extra whitespace (update identifier field) 
 				if (i === data.length - 1){
 					whitespace++;
 				};
@@ -69,10 +80,9 @@ fs.readFile(fdfFile, function(err, data){
 				if(types[i] === 2) {
 					data[i] = new Array(whitespace + 1).join(' ') + data[i];
 				} else {
-					//after if characters
+					//pad out after if data is character field
 					data[i] =  data[i] + new Array(whitespace + 1).join(' ');
-				}
-				
+				}				
 			}
 			data = data.join('');
 			this.push(data);
@@ -89,7 +99,7 @@ fs.readFile(fdfFile, function(err, data){
 	.pipe(jsonToStrings)
 	.pipe(newFile);
 
-
+	console.log('\nCSV file converted');
 	process.stdout.on('error', process.exit);
 
 });
